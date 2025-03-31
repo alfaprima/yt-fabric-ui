@@ -1,0 +1,10 @@
+services:
+  yt-fabric-ui:
+    build: .
+    ports:
+      - "8085:8085"
+    volumes:
+      - ./data:/app/data
+      - ./.config/fabric:/home/fabric/.config/fabric
+    environment:
+      - PORT=8085
