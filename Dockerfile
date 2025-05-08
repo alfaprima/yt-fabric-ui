@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install only the necessary build dependencies
 RUN apk add --no-cache git build-base
@@ -18,7 +18,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o yt-fabric-ui .
 
 # Fabric tool build stage
-FROM golang:1.23-alpine AS fabric-builder
+FROM golang:1.24-alpine AS fabric-builder
 
 # Install git for go install
 RUN apk add --no-cache git
@@ -49,10 +49,10 @@ COPY --from=fabric-builder /go/bin/fabric /usr/local/bin/
 WORKDIR /app
 
 # Expose the port the app runs on
-EXPOSE 8085
+EXPOSE 8090
 
 # Switch to fabric user
 USER fabric
 
 # Command to run the application
-CMD ["./yt-fabric-ui", "--port", "8085"]
+CMD ["./yt-fabric-ui", "--port", "8090"]
