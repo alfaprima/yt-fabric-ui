@@ -49,6 +49,14 @@ func (p *Processor) ProcessVideo(videoID string, model string, pattern string) (
 		return "", yt.Video{}, fmt.Errorf("failed to load video: %v", err)
 	}
 
+	// Check if transcript is available
+	if video.Transcript == "" {
+		p.logger.Warn("No transcript available for video", "videoID", videoID)
+		output := fmt.Sprintf("# %s\n\n**Channel:** %s\n\n**Note:** No transcript was available for this video. Unable to process with pattern '%s'.\n\nThis could be because:\n- The video doesn't have captions/subtitles\n- The captions are auto-generated and not accessible\n- The video has restricted access to transcripts\n\nYou may want to try processing a different video that has available transcripts.", video.Title, video.Channel, pattern)
+		SaveVideoFabricOutput(videoID, output, pattern, model, p.filesDir)
+		return output, *video, nil
+	}
+
 	output, err := RunFabric(video.Transcript, pattern, model)
 	if err != nil {
 		p.logger.Error("Failed to run fabric", "error", err)

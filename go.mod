@@ -6,9 +6,9 @@ toolchain go1.22.2
 
 require (
 	github.com/anaskhan96/soup v1.2.5
+	github.com/andybalholm/brotli v1.0.6
 	// ... other dependencies ...
 	github.com/gorilla/mux v1.8.0
-	github.com/joho/godotenv v1.5.1
 	github.com/russross/blackfriday/v2 v2.1.0
 	golang.org/x/text v0.18.0
 	google.golang.org/api v0.198.0

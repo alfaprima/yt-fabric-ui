@@ -5,6 +5,8 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"fabric-agents/core"
@@ -52,6 +54,7 @@ func (h *Handler) setupRoutes() {
 	h.router.HandleFunc("/process-video", h.handleProcessVideo)
 	h.router.HandleFunc("/videos/{id}", h.handleVideoByID)
 	h.router.HandleFunc("/videos/{id}/{summary}", h.handleVideoByIDSummary)
+	h.router.HandleFunc("/debug/{videoID}/{filename}", h.handleDebugFile)
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -205,4 +208,41 @@ func (h *Handler) handleProcessVideo(w http.ResponseWriter, r *http.Request) {
 	}
 	videoLink := fmt.Sprintf("/videos/%s/%s-%s.md", videoID, pattern, model)
 	fmt.Fprintf(w, `<li><a href="%s" class="text-indigo-400 hover:text-indigo-300 transition duration-150 ease-in-out">%s-%s.md</a></li>`, videoLink, pattern, model)
+}
+
+func (h *Handler) handleDebugFile(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	videoID := vars["videoID"]
+	filename := vars["filename"]
+	h.logger.Debug("Handling /debug/{videoID}/{filename} request", "videoID", videoID, "filename", filename)
+
+	// Construct the file path
+	filePath := filepath.Join("data", "videos", videoID, filename)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		h.logger.Error("Debug file not found", "videoID", videoID, "filename", filename, "path", filePath)
+		http.Error(w, fmt.Sprintf("Debug file not found: %s", filename), http.StatusNotFound)
+		return
+	}
+
+	// Read and serve the file
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		h.logger.Error("Failed to read debug file", "videoID", videoID, "filename", filename, "error", err)
+		http.Error(w, fmt.Sprintf("Failed to read debug file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Set appropriate content type based on file extension
+	if strings.HasSuffix(filename, ".xml") {
+		w.Header().Set("Content-Type", "application/xml")
+	} else if strings.HasSuffix(filename, ".txt") {
+		w.Header().Set("Content-Type", "text/plain")
+	} else {
+		w.Header().Set("Content-Type", "text/plain")
+	}
+
+	// Write the file content
+	w.Write(content)
 }
