@@ -57,7 +57,11 @@ func (p *Processor) ProcessVideo(videoID string, model string, pattern string) (
 		return output, *video, nil
 	}
 
-	output, err := RunFabric(video.Transcript, pattern, model)
+	// Get the video directory path for trace logging
+	videoDir := filepath.Join(p.filesDir, videoID)
+
+	// Use RunFabricWithTrace to log debug traces
+	output, err := RunFabricWithTrace(video.Transcript, pattern, model, videoDir)
 	if err != nil {
 		p.logger.Error("Failed to run fabric", "error", err)
 		return "", yt.Video{}, fmt.Errorf("failed to run fabric: %v", err)

@@ -2,9 +2,32 @@ package core
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+// logProcessError logs errors to Process.log file
+func logProcessError(pattern, model string, err error, stderr string) {
+	logFile, fileErr := os.OpenFile("Process.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if fileErr != nil {
+		fmt.Printf("Warning: Could not open Process.log: %v\n", fileErr)
+		return
+	}
+	defer logFile.Close()
+
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	logEntry := fmt.Sprintf("[%s] Pattern: %s, Model: %s\nError: %v\n", timestamp, pattern, model, err)
+	if stderr != "" {
+		logEntry += fmt.Sprintf("Stderr: %s\n", stderr)
+	}
+	logEntry += "---\n"
+
+	if _, writeErr := logFile.WriteString(logEntry); writeErr != nil {
+		fmt.Printf("Warning: Could not write to Process.log: %v\n", writeErr)
+	}
+}
 
 // RunFabric runs the fabric command with the given pattern and model
 func RunFabric(input, pattern, model string) (string, error) {
@@ -17,11 +40,84 @@ func RunFabric(input, pattern, model string) (string, error) {
 	}
 	cmd.Stdin = strings.NewReader(input)
 
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
+		stderr := string(output)
+		logProcessError(pattern, model, err, stderr)
 		return "", fmt.Errorf("error executing fabric pattern: %v", err)
 	}
 	return string(output), nil
+}
+
+// RunFabricWithTrace runs the fabric command with the given pattern and model, and logs debug traces
+func RunFabricWithTrace(input, pattern, model, videoDir string) (string, error) {
+	var cmd *exec.Cmd
+	fmt.Println("Running fabric with pattern:", pattern, "and model:", model)
+
+	startTime := time.Now()
+
+	if model != "" && model != "default" {
+		cmd = exec.Command("fabric", "--pattern", pattern, "--model", model)
+	} else {
+		cmd = exec.Command("fabric", "--pattern", pattern)
+	}
+	cmd.Stdin = strings.NewReader(input)
+
+	output, err := cmd.CombinedOutput()
+	duration := time.Since(startTime)
+
+	// Log the trace
+	logTrace(videoDir, pattern, model, input, string(output), err, duration)
+
+	if err != nil {
+		stderr := string(output)
+		logProcessError(pattern, model, err, stderr)
+		return "", fmt.Errorf("error executing fabric pattern: %v", err)
+	}
+	return string(output), nil
+}
+
+// logTrace logs debug traces of LLM interactions to a trace file in the video directory
+func logTrace(videoDir, pattern, model, input, output string, err error, duration time.Duration) {
+	if videoDir == "" {
+		return
+	}
+
+	traceFile := fmt.Sprintf("%s/llm-trace.log", videoDir)
+	logFile, fileErr := os.OpenFile(traceFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if fileErr != nil {
+		fmt.Printf("Warning: Could not open trace file: %v\n", fileErr)
+		return
+	}
+	defer logFile.Close()
+
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	separator := strings.Repeat("=", 80)
+
+	logEntry := fmt.Sprintf("\n%s\n", separator)
+	logEntry += fmt.Sprintf("[%s] LLM Interaction Trace\n", timestamp)
+	logEntry += fmt.Sprintf("%s\n\n", separator)
+
+	logEntry += fmt.Sprintf("Pattern: %s\n", pattern)
+	logEntry += fmt.Sprintf("Model: %s\n", model)
+	logEntry += fmt.Sprintf("Duration: %v\n\n", duration)
+
+	logEntry += fmt.Sprintf("--- INPUT (length: %d chars) ---\n", len(input))
+	logEntry += fmt.Sprintf("%s\n\n", input)
+
+	if err != nil {
+		logEntry += fmt.Sprintf("--- ERROR ---\n")
+		logEntry += fmt.Sprintf("%v\n\n", err)
+	}
+
+	logEntry += fmt.Sprintf("--- OUTPUT (length: %d chars) ---\n", len(output))
+	logEntry += fmt.Sprintf("%s\n\n", output)
+
+	logEntry += fmt.Sprintf("%s\n\n", separator)
+
+	if _, writeErr := logFile.WriteString(logEntry); writeErr != nil {
+		fmt.Printf("Warning: Could not write to trace file: %v\n", writeErr)
+	}
 }
 
 func ListPatterns() ([]string, error) {

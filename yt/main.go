@@ -193,10 +193,15 @@ func (y *YT) getTranscriptFromYouTubeAPI(videoID string, doc soup.Root) (string,
 				if captions, ok := playerResponse["captions"].(map[string]interface{}); ok {
 					if renderer, ok := captions["playerCaptionsTracklistRenderer"].(map[string]interface{}); ok {
 						if tracks, ok := renderer["captionTracks"].([]interface{}); ok && len(tracks) > 0 {
-							// Get the first available track
-							if track, ok := tracks[0].(map[string]interface{}); ok {
-								if baseURL, ok := track["baseUrl"].(string); ok {
-									fmt.Printf("Found transcript URL in ytInitialPlayerResponse: %s\n", baseURL)
+							// Find English track, fallback to first available
+							selectedTrack := y.selectEnglishTrack(tracks)
+							if selectedTrack != nil {
+								if baseURL, ok := selectedTrack["baseUrl"].(string); ok {
+									langCode := "unknown"
+									if lc, ok := selectedTrack["languageCode"].(string); ok {
+										langCode = lc
+									}
+									fmt.Printf("Found transcript URL in ytInitialPlayerResponse (language: %s): %s\n", langCode, baseURL)
 									return y.fetchAndParseTranscript(baseURL, videoID)
 								}
 							}
@@ -217,70 +222,79 @@ func (y *YT) getTranscriptFromHTML(videoID string, doc soup.Root) (string, error
 			regex := regexp.MustCompile(`"captionTracks":(\[.*?\])`)
 			match := regex.FindStringSubmatch(scriptTag.Text())
 			if len(match) > 1 {
-				var captionTracks []struct {
-					BaseURL string `json:"baseUrl"`
-				}
+				var captionTracks []interface{}
 				json.Unmarshal([]byte(match[1]), &captionTracks)
 				if len(captionTracks) > 0 {
-					transcriptURL := captionTracks[0].BaseURL
-					fmt.Printf("Fetching transcript from HTML: %s\n", transcriptURL)
-					transcriptResp, err := robustHTTPGet(transcriptURL)
+					// Find English track, fallback to first available
+					selectedTrack := y.selectEnglishTrack(captionTracks)
+					if selectedTrack != nil {
+						transcriptURL, ok := selectedTrack["baseUrl"].(string)
+						if !ok {
+							return "", fmt.Errorf("baseUrl not found in selected track")
+						}
+						langCode := "unknown"
+						if lc, ok := selectedTrack["languageCode"].(string); ok {
+							langCode = lc
+						}
+						fmt.Printf("Fetching transcript from HTML (language: %s): %s\n", langCode, transcriptURL)
+						transcriptResp, err := robustHTTPGet(transcriptURL)
 
-					if err != nil {
-						fmt.Printf("Error getTranscript robustHTTPGet(transcriptURL): %v\n", err)
-						return "", err
-					}
-
-					// Save raw XML transcript for debugging
-					rawXMLPath := fmt.Sprintf("data/videos/%s/transcript_raw.xml", videoID)
-					err = saveToFile(rawXMLPath, transcriptResp)
-					if err != nil {
-						fmt.Printf("Warning: Could not save raw XML: %v\n", err)
-					} else {
-						fmt.Printf("Debug: Raw XML saved to http://localhost:8090/debug/%s/transcript_raw.xml\n", videoID)
-					}
-
-					transcript, err := unmarshalTranscript([]byte(transcriptResp))
-					if err != nil {
-						fmt.Printf("Error getTranscript unmarshalTranscript: %v\n", err)
-						return "", err
-					}
-					var transcriptLines []string
-					fmt.Printf("Debug: Processing %d transcript segments in HTML method\n", len(transcript.Texts))
-					for i, track := range transcript.Texts {
-						originalText := track.Value
-						cleanedText := strings.ReplaceAll(track.Value, "&#39;", "'")
-						cleanedText = strings.ReplaceAll(cleanedText, "&quot;", "\"")
-						cleanedText = strings.ReplaceAll(cleanedText, "&amp;", "&")
-						cleanedText = strings.ReplaceAll(cleanedText, "&lt;", "<")
-						cleanedText = strings.ReplaceAll(cleanedText, "&gt;", ">")
-
-						if i < 5 { // Debug first 5 segments
-							fmt.Printf("Debug HTML segment %d: original='%s', cleaned='%s', trimmed='%s'\n", i, originalText, cleanedText, strings.TrimSpace(cleanedText))
+						if err != nil {
+							fmt.Printf("Error getTranscript robustHTTPGet(transcriptURL): %v\n", err)
+							return "", err
 						}
 
-						if strings.TrimSpace(cleanedText) != "" {
-							transcriptLines = append(transcriptLines, cleanedText)
+						// Save raw XML transcript for debugging
+						rawXMLPath := fmt.Sprintf("data/videos/%s/transcript_raw.xml", videoID)
+						err = saveToFile(rawXMLPath, transcriptResp)
+						if err != nil {
+							fmt.Printf("Warning: Could not save raw XML: %v\n", err)
+						} else {
+							fmt.Printf("Debug: Raw XML saved to http://localhost:8090/debug/%s/transcript_raw.xml\n", videoID)
 						}
+
+						transcript, err := unmarshalTranscript([]byte(transcriptResp))
+						if err != nil {
+							fmt.Printf("Error getTranscript unmarshalTranscript: %v\n", err)
+							return "", err
+						}
+						var transcriptLines []string
+						fmt.Printf("Debug: Processing %d transcript segments in HTML method\n", len(transcript.Texts))
+						for i, track := range transcript.Texts {
+							originalText := track.Value
+							cleanedText := strings.ReplaceAll(track.Value, "&#39;", "'")
+							cleanedText = strings.ReplaceAll(cleanedText, "&quot;", "\"")
+							cleanedText = strings.ReplaceAll(cleanedText, "&amp;", "&")
+							cleanedText = strings.ReplaceAll(cleanedText, "&lt;", "<")
+							cleanedText = strings.ReplaceAll(cleanedText, "&gt;", ">")
+
+							if i < 5 { // Debug first 5 segments
+								fmt.Printf("Debug HTML segment %d: original='%s', cleaned='%s', trimmed='%s'\n", i, originalText, cleanedText, strings.TrimSpace(cleanedText))
+							}
+
+							if strings.TrimSpace(cleanedText) != "" {
+								transcriptLines = append(transcriptLines, cleanedText)
+							}
+						}
+
+						if len(transcriptLines) == 0 {
+							return "", fmt.Errorf("no valid transcript text found in HTML method")
+						}
+
+						cleanedTranscript := strings.Join(transcriptLines, " ")
+
+						// Save processed transcript for debugging
+						processedPath := fmt.Sprintf("data/videos/%s/transcript_processed.txt", videoID)
+						err = saveToFile(processedPath, cleanedTranscript)
+						if err != nil {
+							fmt.Printf("Warning: Could not save processed transcript: %v\n", err)
+						} else {
+							fmt.Printf("Debug: Processed transcript saved to http://localhost:8090/debug/%s/transcript_processed.txt\n", videoID)
+						}
+
+						fmt.Printf("Successfully extracted transcript with %d segments, total length: %d characters (HTML method)\n", len(transcriptLines), len(cleanedTranscript))
+						return cleanedTranscript, nil
 					}
-
-					if len(transcriptLines) == 0 {
-						return "", fmt.Errorf("no valid transcript text found in HTML method")
-					}
-
-					cleanedTranscript := strings.Join(transcriptLines, " ")
-
-					// Save processed transcript for debugging
-					processedPath := fmt.Sprintf("data/videos/%s/transcript_processed.txt", videoID)
-					err = saveToFile(processedPath, cleanedTranscript)
-					if err != nil {
-						fmt.Printf("Warning: Could not save processed transcript: %v\n", err)
-					} else {
-						fmt.Printf("Debug: Processed transcript saved to http://localhost:8090/debug/%s/transcript_processed.txt\n", videoID)
-					}
-
-					fmt.Printf("Successfully extracted transcript with %d segments, total length: %d characters (HTML method)\n", len(transcriptLines), len(cleanedTranscript))
-					return cleanedTranscript, nil
 				}
 			}
 		}
@@ -566,18 +580,71 @@ func (y *YT) extractTranscriptURLFromInnerTube(data map[string]interface{}) (str
 		return "", fmt.Errorf("captionTracks not found or empty")
 	}
 
-	// Get the first available caption track
-	firstTrack, ok := captionTracks[0].(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("invalid caption track format")
+	// Find English track, fallback to first available
+	selectedTrack := y.selectEnglishTrack(captionTracks)
+	if selectedTrack == nil {
+		return "", fmt.Errorf("no suitable caption track found")
 	}
 
-	baseURL, ok := firstTrack["baseUrl"].(string)
+	baseURL, ok := selectedTrack["baseUrl"].(string)
 	if !ok {
 		return "", fmt.Errorf("baseUrl not found in caption track")
 	}
 
+	langCode := "unknown"
+	if lc, ok := selectedTrack["languageCode"].(string); ok {
+		langCode = lc
+	}
+	fmt.Printf("Selected transcript from InnerTube (language: %s): %s\n", langCode, baseURL)
+
 	return baseURL, nil
+}
+
+// selectEnglishTrack finds an English language track from available caption tracks
+// Falls back to the first available track if no English track is found
+func (y *YT) selectEnglishTrack(tracks []interface{}) map[string]interface{} {
+	if len(tracks) == 0 {
+		return nil
+	}
+
+	// First, try to find an English track
+	for _, track := range tracks {
+		trackMap, ok := track.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		// Check language code
+		if langCode, ok := trackMap["languageCode"].(string); ok {
+			// Match English language codes (en, en-US, en-GB, etc.)
+			if strings.HasPrefix(strings.ToLower(langCode), "en") {
+				fmt.Printf("Found English track with language code: %s\n", langCode)
+				return trackMap
+			}
+		}
+
+		// Also check the name field for English indicators
+		if name, ok := trackMap["name"].(map[string]interface{}); ok {
+			if simpleText, ok := name["simpleText"].(string); ok {
+				lowerName := strings.ToLower(simpleText)
+				if strings.Contains(lowerName, "english") {
+					fmt.Printf("Found English track by name: %s\n", simpleText)
+					return trackMap
+				}
+			}
+		}
+	}
+
+	// If no English track found, return the first available track
+	fmt.Printf("No English track found, using first available track\n")
+	if firstTrack, ok := tracks[0].(map[string]interface{}); ok {
+		if langCode, ok := firstTrack["languageCode"].(string); ok {
+			fmt.Printf("First available track language: %s\n", langCode)
+		}
+		return firstTrack
+	}
+
+	return nil
 }
 
 func getTitle(doc soup.Root) string {
