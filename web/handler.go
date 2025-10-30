@@ -55,6 +55,12 @@ func (h *Handler) setupRoutes() {
 	h.router.HandleFunc("/videos/{id}", h.handleVideoByID)
 	h.router.HandleFunc("/videos/{id}/{summary}", h.handleVideoByIDSummary)
 	h.router.HandleFunc("/debug/{videoID}/{filename}", h.handleDebugFile)
+	h.router.HandleFunc("/config", h.handleConfig)
+	h.router.HandleFunc("/config/patterns", h.handleConfigPatterns)
+	h.router.HandleFunc("/config/pattern/{name}", h.handleConfigPattern)
+	h.router.HandleFunc("/config/pattern/{name}/save", h.handleSavePattern)
+	h.router.HandleFunc("/config/env", h.handleConfigEnv)
+	h.router.HandleFunc("/config/env/save", h.handleSaveEnv)
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -245,4 +251,142 @@ func (h *Handler) handleDebugFile(w http.ResponseWriter, r *http.Request) {
 
 	// Write the file content
 	w.Write(content)
+}
+
+func (h *Handler) handleConfig(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("Handling /config request")
+	tmpl := template.Must(template.ParseFiles("web/templates/layout.html", "web/templates/config.html"))
+	tmpl.Execute(w, map[string]string{"Title": "Configuration"})
+}
+
+func (h *Handler) handleConfigPatterns(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("Handling /config/patterns request")
+	patterns, err := core.ListPatterns()
+	if err != nil {
+		h.logger.Error("Failed to load patterns", "error", err)
+		http.Error(w, fmt.Sprintf("Failed to load patterns: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	tmpl := template.Must(template.ParseFiles("web/templates/layout.html", "web/templates/config-patterns.html"))
+	tmpl.Execute(w, map[string]interface{}{"Title": "Edit Patterns", "Patterns": patterns})
+}
+
+func (h *Handler) handleConfigPattern(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	patternName := vars["name"]
+	h.logger.Debug("Handling /config/pattern/{name} request", "pattern", patternName)
+
+	// Get the fabric config directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		h.logger.Error("Failed to get home directory", "error", err)
+		http.Error(w, fmt.Sprintf("Failed to get home directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	patternPath := filepath.Join(homeDir, ".config", "fabric", "patterns", patternName, "system.md")
+	content, err := os.ReadFile(patternPath)
+	if err != nil {
+		h.logger.Error("Failed to read pattern file", "pattern", patternName, "error", err)
+		http.Error(w, fmt.Sprintf("Failed to read pattern file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	tmpl := template.Must(template.ParseFiles("web/templates/layout.html", "web/templates/config-pattern-edit.html"))
+	tmpl.Execute(w, map[string]interface{}{
+		"Title":       "Edit Pattern",
+		"PatternName": patternName,
+		"Content":     string(content),
+	})
+}
+
+func (h *Handler) handleSavePattern(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	patternName := vars["name"]
+	h.logger.Debug("Handling /config/pattern/{name}/save request", "pattern", patternName)
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	content := r.FormValue("content")
+
+	// Get the fabric config directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		h.logger.Error("Failed to get home directory", "error", err)
+		http.Error(w, fmt.Sprintf("Failed to get home directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	patternPath := filepath.Join(homeDir, ".config", "fabric", "patterns", patternName, "system.md")
+	err = os.WriteFile(patternPath, []byte(content), 0644)
+	if err != nil {
+		h.logger.Error("Failed to save pattern file", "pattern", patternName, "error", err)
+		http.Error(w, fmt.Sprintf("Failed to save pattern file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	h.logger.Info("Pattern saved successfully", "pattern", patternName)
+	w.Header().Set("HX-Redirect", "/config/patterns")
+	fmt.Fprintf(w, "Pattern saved successfully")
+}
+
+func (h *Handler) handleConfigEnv(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("Handling /config/env request")
+
+	// Get the fabric config directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		h.logger.Error("Failed to get home directory", "error", err)
+		http.Error(w, fmt.Sprintf("Failed to get home directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	envPath := filepath.Join(homeDir, ".config", "fabric", ".env")
+	content, err := os.ReadFile(envPath)
+	if err != nil {
+		h.logger.Error("Failed to read .env file", "error", err)
+		http.Error(w, fmt.Sprintf("Failed to read .env file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	tmpl := template.Must(template.ParseFiles("web/templates/layout.html", "web/templates/config-env.html"))
+	tmpl.Execute(w, map[string]interface{}{
+		"Title":   "Edit .env File",
+		"Content": string(content),
+	})
+}
+
+func (h *Handler) handleSaveEnv(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("Handling /config/env/save request")
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	content := r.FormValue("content")
+
+	// Get the fabric config directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		h.logger.Error("Failed to get home directory", "error", err)
+		http.Error(w, fmt.Sprintf("Failed to get home directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	envPath := filepath.Join(homeDir, ".config", "fabric", ".env")
+	err = os.WriteFile(envPath, []byte(content), 0644)
+	if err != nil {
+		h.logger.Error("Failed to save .env file", "error", err)
+		http.Error(w, fmt.Sprintf("Failed to save .env file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	h.logger.Info(".env file saved successfully")
+	w.Header().Set("HX-Redirect", "/config")
+	fmt.Fprintf(w, ".env file saved successfully")
 }
