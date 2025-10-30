@@ -44,7 +44,13 @@ func RunFabric(input, pattern, model string) (string, error) {
 	if err != nil {
 		stderr := string(output)
 		logProcessError(pattern, model, err, stderr)
-		return "", fmt.Errorf("error executing fabric pattern: %v", err)
+
+		// Provide more detailed error message
+		errorMsg := fmt.Sprintf("error executing fabric pattern: %v", err)
+		if stderr != "" {
+			errorMsg = fmt.Sprintf("error executing fabric pattern: %v\nDetails: %s", err, stderr)
+		}
+		return "", fmt.Errorf("%s", errorMsg)
 	}
 	return string(output), nil
 }
@@ -72,7 +78,13 @@ func RunFabricWithTrace(input, pattern, model, videoDir string) (string, error) 
 	if err != nil {
 		stderr := string(output)
 		logProcessError(pattern, model, err, stderr)
-		return "", fmt.Errorf("error executing fabric pattern: %v", err)
+
+		// Provide more detailed error message
+		errorMsg := fmt.Sprintf("error executing fabric pattern: %v", err)
+		if stderr != "" {
+			errorMsg = fmt.Sprintf("error executing fabric pattern: %v\nDetails: %s", err, stderr)
+		}
+		return "", fmt.Errorf("%s", errorMsg)
 	}
 	return string(output), nil
 }
