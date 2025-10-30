@@ -1,7 +1,7 @@
 services:
   yt-fabric-ui:
     build: .
-    image: yt-fabric-ui:1.0.4
+    image: yt-fabric-ui:1.0.5
     ports:
       - "8090:8090"
     volumes:
