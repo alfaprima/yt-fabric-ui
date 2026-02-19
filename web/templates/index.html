@@ -5,9 +5,10 @@
         Process and analyze YouTube content with ease. Transcribe videos, search for specific content, and run pattern analysis on video transcripts.
     </p>
     
+    {{if .CanOperate}}
     <div class="bg-white rounded-lg shadow-md p-6 mb-8">
         <h3 class="text-2xl font-semibold text-indigo-700 mb-4">Submit YouTube Videos</h3>
-        <form hx-post="/submit-videos" hx-target="#result">
+        <form hx-post="{{.BasePath}}/submit-videos" hx-target="#result">
             <textarea 
                 name="video_links" 
                 rows="5" 
@@ -22,6 +23,11 @@
             </button>
         </form>
     </div>
+    {{else}}
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+        <p class="text-yellow-700">Your role is read-only. Contact an administrator for operator access.</p>
+    </div>
+    {{end}}
     
     <div id="result" class="bg-white rounded-lg shadow-md p-6"></div>
 </div>

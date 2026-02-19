@@ -1,8 +1,10 @@
 services:
   yt-fabric-ui:
     build: .
-    image: yt-fabric-ui:1.0.6
+    image: yt-fabric-ui:latest
     network_mode: "host"
+    env_file:
+      - .env
     volumes:
       - ./data:/app/data
       - ./.config/fabric:/home/fabric/.config/fabric

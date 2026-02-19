@@ -42,31 +42,37 @@ func (p *Processor) FetchVideo(videoLink string) (string, error) {
 	return video.ID, nil
 }
 
-func (p *Processor) ProcessVideo(videoID string, model string, pattern string) (string, yt.Video, error) {
+func (p *Processor) ProcessVideo(videoID string, model string, pattern string) (string, yt.Video, string, error) {
 	p.logger.Info("Processing video", "videoID", videoID, "model", model, "pattern", pattern)
 	video, err := LoadVideo(videoID, p.filesDir)
 	if err != nil {
-		return "", yt.Video{}, fmt.Errorf("failed to load video: %v", err)
+		return "", yt.Video{}, "", fmt.Errorf("failed to load video: %v", err)
 	}
+
+	videoDir := filepath.Join(p.filesDir, videoID)
 
 	// Check if transcript is available
 	if video.Transcript == "" {
 		p.logger.Warn("No transcript available for video", "videoID", videoID)
 		output := fmt.Sprintf("# %s\n\n**Channel:** %s\n\n**Note:** No transcript was available for this video. Unable to process with pattern '%s'.\n\nThis could be because:\n- The video doesn't have captions/subtitles\n- The captions are auto-generated and not accessible\n- The video has restricted access to transcripts\n\nYou may want to try processing a different video that has available transcripts.", video.Title, video.Channel, pattern)
 		SaveVideoFabricOutput(videoID, output, pattern, model, p.filesDir)
-		return output, *video, nil
+
+		traceFileName, traceErr := WriteWarningTrace(videoDir, pattern, model, "No transcript available for this video. Pattern execution could not proceed.")
+		if traceErr != nil {
+			p.logger.Warn("Failed to write warning trace file", "error", traceErr)
+			traceFileName = ""
+		}
+
+		return output, *video, traceFileName, nil
 	}
 
-	// Get the video directory path for trace logging
-	videoDir := filepath.Join(p.filesDir, videoID)
-
 	// Use RunFabricWithTrace to log debug traces
-	output, err := RunFabricWithTrace(video.Transcript, pattern, model, videoDir)
+	output, traceFileName, err := RunFabricWithTrace(video.Transcript, pattern, model, videoDir)
 	if err != nil {
 		p.logger.Error("Failed to run fabric", "error", err)
-		return "", yt.Video{}, fmt.Errorf("failed to run fabric: %v", err)
+		return "", yt.Video{}, traceFileName, fmt.Errorf("failed to run fabric: %v", err)
 	}
 
 	SaveVideoFabricOutput(videoID, output, pattern, model, p.filesDir)
-	return output, *video, nil
+	return output, *video, traceFileName, nil
 }

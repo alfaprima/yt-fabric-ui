@@ -1,0 +1,2 @@
+2026/02/13 16:31:54 listen tcp 0.0.0.0:18085: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+exit status 1

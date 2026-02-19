@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import sys
-import json
+
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+
 
 def test_video_transcript(video_id):
     print(f"Testing video: {video_id}")

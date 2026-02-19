@@ -19,6 +19,14 @@ error, status code: 400, status: 400 Bad Request, message: Unsupported value: 't
 - **Claude models** - Anthropic's Claude 3.5 Sonnet or Haiku
 - **Groq models** - Fast inference with Llama models
 
+Or force fabric raw mode globally from the app container:
+
+```env
+FABRIC_GLOBAL_RAW=true
+```
+
+This makes the app call fabric with `--raw` (no custom temperature/top_p flags).
+
 **How to change the model:**
 
 1. In the web UI, select a different model from the dropdown when processing a video
@@ -69,7 +77,12 @@ error, status code: 400, status: 400 Bad Request, message: Unsupported value: 't
    docker exec $(docker ps -q -f name=yt-fabric-ui) cat /app/Process.log
    ```
 
-4. **Try a different model** - Switch from reasoning models (gpt-5, o1) to standard models (gpt-4o, claude-3-5-sonnet)
+4. **Inspect per-video trace file** for request details (service URL, payload summary, full stderr):
+   ```bash
+   ls -la ./data/videos/<video_id>/llm-trace-*.log
+   ```
+
+5. **Try a different model** - Switch from reasoning models (gpt-5, o1) to standard models (gpt-4o, claude-3-5-sonnet)
 
 ### Docker Container Issues
 

@@ -11,6 +11,29 @@ This document provides instructions for running the YouTube Fabric UI applicatio
 
 ### Option 1: Using Docker Compose (Recommended)
 
+0. Create your runtime env file for the container:
+   ```bash
+   cp .env.example .env
+   ```
+
+   Required auth values in `.env`:
+   ```env
+   AUTH_ENABLED=true
+   AUTH_BOOTSTRAP_ADMIN_USER=admin
+   AUTH_BOOTSTRAP_ADMIN_PASS=change-me-now
+   ```
+
+   Optional global model parameters:
+   ```env
+   # FABRIC_GLOBAL_TEMPERATURE=1
+   # FABRIC_GLOBAL_TOP_P=0.9
+   # FABRIC_GLOBAL_PRESENCE_PENALTY=0
+   # FABRIC_GLOBAL_FREQUENCY_PENALTY=0
+   # FABRIC_GLOBAL_RAW=true
+   ```
+
+   For GPT-5/o1/o3/o4 model families, set `FABRIC_GLOBAL_RAW=true` to avoid unsupported custom temperature errors.
+
 1. Build and start the container:
    ```bash
    docker-compose up
@@ -74,3 +97,4 @@ If you encounter any issues:
 3. Verify that the fabric CLI tool is installed correctly in the container:
    ```bash
    docker exec -it <container_id> fabric -h
+   ```
