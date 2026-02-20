@@ -20,8 +20,12 @@ This document provides instructions for running the YouTube Fabric UI applicatio
    ```env
    AUTH_ENABLED=true
    AUTH_BOOTSTRAP_ADMIN_USER=admin
-   AUTH_BOOTSTRAP_ADMIN_PASS=change-me-now
+   AUTH_BOOTSTRAP_ADMIN_PASS=use-a-long-random-password
+   AUTH_COOKIE_SECURE=true
+   FABRIC_ENV_EDIT_ENABLED=false
    ```
+
+   `FABRIC_ENV_EDIT_ENABLED=false` is recommended for production. This disables editing `~/.config/fabric/.env` from the UI.
 
    Optional global model parameters:
    ```env
@@ -39,7 +43,7 @@ This document provides instructions for running the YouTube Fabric UI applicatio
    docker-compose up
    ```
 
-   This will build the Docker image and start the container. The application will be accessible at http://localhost:8080.
+   This will build the Docker image and start the container. The application will be accessible at http://localhost:8090.
 
 2. To run in detached mode (in the background):
    ```bash
@@ -60,10 +64,10 @@ This document provides instructions for running the YouTube Fabric UI applicatio
 
 2. Run the container:
    ```bash
-   docker run -p 8085:8085 -v $(pwd)/data:/app/data yt-fabric-ui
+   docker run -p 8090:8090 -v $(pwd)/data:/app/data yt-fabric-ui
    ```
 
-   The application will be accessible at http://localhost:8085.
+   The application will be accessible at http://localhost:8090.
 
 ## Data Persistence
 
@@ -76,7 +80,7 @@ You can configure the application by modifying the environment variables in the 
 For example, to change the port:
 
 ```bash
-docker run -p 9090:8080 -v $(pwd)/data:/app/data -e PORT=8080 yt-fabric-ui
+docker run -p 9090:8090 -v $(pwd)/data:/app/data -e PORT=8090 yt-fabric-ui
 ```
 
 ## Troubleshooting

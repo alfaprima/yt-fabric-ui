@@ -1,3 +1,4 @@
 {
-    "spring.initializr.defaultLanguage": "Java"
+    "spring.initializr.defaultLanguage": "Java",
+    "postman.settings.dotenv-detection-notification-visibility": false
 }

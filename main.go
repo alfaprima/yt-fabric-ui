@@ -51,7 +51,15 @@ func runWebServer(port string, logger *slog.Logger) {
 		logger.Error("Failed to bootstrap admin", "error", err)
 	}
 
-	handler := web.NewHandler(processor, "data/videos", logger, authService, authEnabled, getenvBool("AUTH_COOKIE_SECURE", false))
+	handler := web.NewHandler(
+		processor,
+		"data/videos",
+		logger,
+		authService,
+		authEnabled,
+		getenvBool("AUTH_COOKIE_SECURE", false),
+		getenvBool("FABRIC_ENV_EDIT_ENABLED", false),
+	)
 	http.Handle("/", handler)
 	logger.Info("Starting web server", "port", port)
 	log.Fatal(http.ListenAndServe("0.0.0.0:"+port, nil))

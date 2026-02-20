@@ -31,23 +31,25 @@ var templateFuncs = template.FuncMap{
 }
 
 type Handler struct {
-	processor    *core.Processor
-	router       *mux.Router
-	dataDir      string
-	logger       *slog.Logger
-	authService  *auth.Service
-	authEnabled  bool
-	cookieSecure bool
+	processor      *core.Processor
+	router         *mux.Router
+	dataDir        string
+	logger         *slog.Logger
+	authService    *auth.Service
+	authEnabled    bool
+	cookieSecure   bool
+	envEditEnabled bool
 }
 
-func NewHandler(p *core.Processor, dataDir string, logger *slog.Logger, authService *auth.Service, authEnabled bool, cookieSecure bool) *Handler {
+func NewHandler(p *core.Processor, dataDir string, logger *slog.Logger, authService *auth.Service, authEnabled bool, cookieSecure bool, envEditEnabled bool) *Handler {
 	h := &Handler{
-		processor:    p,
-		dataDir:      dataDir,
-		logger:       logger,
-		authService:  authService,
-		authEnabled:  authEnabled,
-		cookieSecure: cookieSecure,
+		processor:      p,
+		dataDir:        dataDir,
+		logger:         logger,
+		authService:    authService,
+		authEnabled:    authEnabled,
+		cookieSecure:   cookieSecure,
+		envEditEnabled: envEditEnabled,
 	}
 	h.setupRoutes()
 	h.logger.Info("Handler initialized")
@@ -75,8 +77,10 @@ func (h *Handler) setupRoutes() {
 		r.HandleFunc("/config/patterns", h.handleConfigPatterns).Methods(http.MethodGet)
 		r.HandleFunc("/config/pattern/{name}", h.handleConfigPattern).Methods(http.MethodGet)
 		r.HandleFunc("/config/pattern/{name}/save", h.handleSavePattern).Methods(http.MethodPost)
-		r.HandleFunc("/config/env", h.handleConfigEnv).Methods(http.MethodGet)
-		r.HandleFunc("/config/env/save", h.handleSaveEnv).Methods(http.MethodPost)
+		if h.envEditEnabled {
+			r.HandleFunc("/config/env", h.handleConfigEnv).Methods(http.MethodGet)
+			r.HandleFunc("/config/env/save", h.handleSaveEnv).Methods(http.MethodPost)
+		}
 		r.HandleFunc("/config/models", h.handleConfigModels).Methods(http.MethodGet)
 		r.HandleFunc("/config/models/save", h.handleSaveModels).Methods(http.MethodPost)
 		r.HandleFunc("/config/models/refresh", h.handleRefreshModels).Methods(http.MethodPost)
@@ -115,8 +119,10 @@ func (h *Handler) setupRoutes() {
 	admin.HandleFunc("/config/patterns", h.handleConfigPatterns).Methods(http.MethodGet)
 	admin.HandleFunc("/config/pattern/{name}", h.handleConfigPattern).Methods(http.MethodGet)
 	admin.HandleFunc("/config/pattern/{name}/save", h.handleSavePattern).Methods(http.MethodPost)
-	admin.HandleFunc("/config/env", h.handleConfigEnv).Methods(http.MethodGet)
-	admin.HandleFunc("/config/env/save", h.handleSaveEnv).Methods(http.MethodPost)
+	if h.envEditEnabled {
+		admin.HandleFunc("/config/env", h.handleConfigEnv).Methods(http.MethodGet)
+		admin.HandleFunc("/config/env/save", h.handleSaveEnv).Methods(http.MethodPost)
+	}
 	admin.HandleFunc("/config/models", h.handleConfigModels).Methods(http.MethodGet)
 	admin.HandleFunc("/config/models/save", h.handleSaveModels).Methods(http.MethodPost)
 	admin.HandleFunc("/config/models/refresh", h.handleRefreshModels).Methods(http.MethodPost)
@@ -516,7 +522,7 @@ func (h *Handler) handleDebugFile(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handleConfig(w http.ResponseWriter, r *http.Request) {
 	h.logger.Debug("Handling /config request")
 	tmpl := template.Must(template.ParseFiles("web/templates/layout.html", "web/templates/config.html"))
-	tmpl.Execute(w, templateData(r, map[string]interface{}{"Title": "Configuration", "AuthEnabled": h.authEnabled}))
+	tmpl.Execute(w, templateData(r, map[string]interface{}{"Title": "Configuration", "AuthEnabled": h.authEnabled, "EnvEditEnabled": h.envEditEnabled}))
 }
 
 func (h *Handler) handleConfigPatterns(w http.ResponseWriter, r *http.Request) {
@@ -597,6 +603,10 @@ func (h *Handler) handleSavePattern(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleConfigEnv(w http.ResponseWriter, r *http.Request) {
 	h.logger.Debug("Handling /config/env request")
+	if !h.envEditEnabled {
+		http.NotFound(w, r)
+		return
+	}
 
 	// Get the fabric config directory
 	homeDir, err := os.UserHomeDir()
@@ -624,6 +634,10 @@ func (h *Handler) handleConfigEnv(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleSaveEnv(w http.ResponseWriter, r *http.Request) {
 	h.logger.Debug("Handling /config/env/save request")
+	if !h.envEditEnabled {
+		http.NotFound(w, r)
+		return
+	}
 
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

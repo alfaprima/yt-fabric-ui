@@ -1,28 +1,27 @@
 @echo off
 REM Script to build and push Docker image to DockerHub
-REM Usage: push-to-dockerhub.bat [version]
+REM Usage: push-to-dockerhub.bat <version>
 
 setlocal enabledelayedexpansion
 
 REM Configuration
 set DOCKERHUB_USERNAME=alfaprima
 set IMAGE_NAME=yt-fabric-ui
+set FULL_IMAGE=%DOCKERHUB_USERNAME%/%IMAGE_NAME%
 
-REM Get version from argument or docker-compose.yml
+REM Get version from argument
 if "%~1"=="" (
-    REM Extract version from docker-compose.yml
-    for /f "tokens=2 delims=:" %%a in ('findstr /r "image: %IMAGE_NAME%:" docker-compose.yml') do (
-        set VERSION=%%a
-        set VERSION=!VERSION:~0,-1!
-        set VERSION=!VERSION: =!
-    )
-    if "!VERSION!"=="" (
-        echo Error: Could not extract version from docker-compose.yml
-        echo Usage: %~nx0 [version]
-        exit /b 1
-    )
+    echo Usage: %~nx0 ^<version^>
+    echo Example: %~nx0 1.0.7
+    exit /b 1
 ) else (
     set VERSION=%~1
+)
+
+echo %VERSION% | findstr /R "^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\([.-][0-9A-Za-z.-][0-9A-Za-z.-]*\)*$" >nul
+if errorlevel 1 (
+    echo Error: Version must look like semver (e.g. 1.0.7 or 1.0.7-rc1)
+    exit /b 1
 )
 
 echo ==========================================
@@ -35,31 +34,25 @@ echo ==========================================
 REM Build the Docker image with both version and latest tags
 echo.
 echo Step 1: Building Docker image...
-docker build -t %DOCKERHUB_USERNAME%/%IMAGE_NAME%:%VERSION% -t %DOCKERHUB_USERNAME%/%IMAGE_NAME%:latest .
+docker build --pull -t %FULL_IMAGE%:%VERSION% -t %FULL_IMAGE%:latest .
 if errorlevel 1 (
     echo Error: Docker build failed
     exit /b 1
 )
 
-REM Check if logged in to DockerHub
+REM Ensure logged in to DockerHub (use access token if possible)
 echo.
-echo Step 2: Checking DockerHub login...
-docker info | findstr /C:"Username: %DOCKERHUB_USERNAME%" >nul
+echo Step 2: DockerHub login...
+docker login --username %DOCKERHUB_USERNAME%
 if errorlevel 1 (
-    echo Not logged in to DockerHub. Attempting login...
-    docker login
-    if errorlevel 1 (
-        echo Error: Docker login failed
-        exit /b 1
-    )
-) else (
-    echo Already logged in to DockerHub as %DOCKERHUB_USERNAME%
+    echo Error: Docker login failed
+    exit /b 1
 )
 
 REM Push the versioned tag
 echo.
 echo Step 3: Pushing version %VERSION%...
-docker push %DOCKERHUB_USERNAME%/%IMAGE_NAME%:%VERSION%
+docker push %FULL_IMAGE%:%VERSION%
 if errorlevel 1 (
     echo Error: Failed to push version %VERSION%
     exit /b 1
@@ -68,7 +61,7 @@ if errorlevel 1 (
 REM Push the latest tag
 echo.
 echo Step 4: Pushing latest tag...
-docker push %DOCKERHUB_USERNAME%/%IMAGE_NAME%:latest
+docker push %FULL_IMAGE%:latest
 if errorlevel 1 (
     echo Error: Failed to push latest tag
     exit /b 1
@@ -77,8 +70,8 @@ if errorlevel 1 (
 echo.
 echo ==========================================
 echo Successfully pushed to DockerHub!
-echo   - %DOCKERHUB_USERNAME%/%IMAGE_NAME%:%VERSION%
-echo   - %DOCKERHUB_USERNAME%/%IMAGE_NAME%:latest
+echo   - %FULL_IMAGE%:%VERSION%
+echo   - %FULL_IMAGE%:latest
 echo ==========================================
 
 endlocal

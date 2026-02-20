@@ -1,6 +1,26 @@
 .git
 .gitignore
+.github
+.vscode
 README.md
 docs
 data
 tmp
+
+# Local secrets / runtime state
+.env
+.env.*
+!.env.example
+.config
+
+# Logs and temp artifacts
+*.log
+*.err
+server.log
+server.err
+
+# Build/test artifacts
+bin
+dist
+coverage*
+*.out

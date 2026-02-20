@@ -17,7 +17,7 @@ You have two options:
    ```
 2. Push to Docker Hub or your private registry:
    ```
-   docker login
+   docker login --username your-registry-user
    docker push your-registry/yt-fabric-ui:1.0.4
    ```
 
@@ -40,14 +40,15 @@ You have two options:
 Create the necessary directories on your target server:
 ```
 mkdir -p /path/to/data
-mkdir -p /path/to/.config/fabric
+mkdir -p /path/to/.config/fabric/patterns
+touch /path/to/.config/fabric/.env
 ```
 
 ### Step 3: Configure Fabric on Target Server
 The application requires fabric configuration. Copy your local fabric config to the target server:
 ```
-# From your local machine, copy the fabric config
-scp -r ./.config/fabric user@target-server:/path/to/.config/fabric
+# From your local machine, copy only patterns (non-secret) and manage .env securely
+scp -r ./.config/fabric/patterns user@target-server:/path/to/.config/fabric/patterns
 ```
 
 ### Step 4: Deploy via Portainer
@@ -67,10 +68,17 @@ services:
       - "8090:8090"
     volumes:
       - /path/to/data:/app/data
-      - /path/to/.config/fabric:/home/fabric/.config/fabric
+      - /path/to/.config/fabric/patterns:/home/fabric/.config/fabric/patterns
+      - /path/to/.config/fabric/.env:/home/fabric/.config/fabric/.env:ro
     environment:
       - PORT=8090
+      - AUTH_COOKIE_SECURE=true
+      - FABRIC_ENV_EDIT_ENABLED=false
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 ```
 
 5. Update the volume paths to match your target server paths
@@ -84,9 +92,12 @@ services:
    - **Port mapping**: Host 8090 → Container 8090
    - **Volumes**:
      - `/path/to/data` → `/app/data`
-     - `/path/to/.config/fabric` → `/home/fabric/.config/fabric`
+     - `/path/to/.config/fabric/patterns` → `/home/fabric/.config/fabric/patterns`
+     - `/path/to/.config/fabric/.env` → `/home/fabric/.config/fabric/.env` (read-only)
    - **Environment variables**:
      - PORT=8090
+     - AUTH_COOKIE_SECURE=true
+     - FABRIC_ENV_EDIT_ENABLED=false
    - **Restart policy**: Unless stopped
 3. Click **Deploy the container**
 
@@ -98,7 +109,8 @@ services:
 
 **Required Volumes:**
 - `/app/data` - Stores video data and processing results
-- `/home/fabric/.config/fabric` - Contains fabric AI framework configuration (API keys, patterns)
+- `/home/fabric/.config/fabric/patterns` - Contains fabric patterns (writable as needed)
+- `/home/fabric/.config/fabric/.env` - Contains API keys and should be mounted read-only in production
 
 **Port:**
 - Default: 8090 (can be changed via PORT environment variable)

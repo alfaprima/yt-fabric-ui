@@ -2,11 +2,20 @@ services:
   yt-fabric-ui:
     build: .
     image: yt-fabric-ui:latest
-    network_mode: "host"
+    ports:
+      - "8090:8090"
     env_file:
       - .env
     volumes:
       - ./data:/app/data
-      - ./.config/fabric:/home/fabric/.config/fabric
+      - ./.config/fabric/patterns:/home/fabric/.config/fabric/patterns
+      - ./.config/fabric/.env:/home/fabric/.config/fabric/.env:ro
     environment:
       - PORT=8090
+      - AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE:-true}
+      - FABRIC_ENV_EDIT_ENABLED=${FABRIC_ENV_EDIT_ENABLED:-false}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

@@ -11,30 +11,16 @@ This directory contains scripts to automate building and pushing Docker images t
 
 - Automatically builds Docker image with multi-stage build
 - Tags image with both version number and `latest` tag
-- Checks DockerHub login status
+- Uses explicit Docker Hub login (`docker login --username ...`)
 - Pushes both tags to DockerHub
-- Extracts version from `docker-compose.yml` automatically
-- Supports manual version override
+- Requires explicit version argument (safer and predictable)
+- Pulls newest base images during build (`docker build --pull`)
 
 ## Usage
 
-### Automatic Version Detection
+### Push a Version
 
-The scripts will automatically read the version from `docker-compose.yml`:
-
-**Linux/Mac:**
-```bash
-./push-to-dockerhub.sh
-```
-
-**Windows:**
-```cmd
-push-to-dockerhub.bat
-```
-
-### Manual Version Override
-
-You can specify a custom version as an argument:
+You must specify a version as an argument:
 
 **Linux/Mac:**
 ```bash
@@ -48,18 +34,18 @@ push-to-dockerhub.bat 1.0.7
 
 ## What the Scripts Do
 
-1. **Extract Version**: Reads version from `docker-compose.yml` or uses provided argument
+1. **Validate Version**: Uses a required CLI version argument
 2. **Build Image**: Builds Docker image with both version and `latest` tags
    - `alfaprima/yt-fabric-ui:X.X.X`
    - `alfaprima/yt-fabric-ui:latest`
-3. **Check Login**: Verifies DockerHub authentication (prompts for login if needed)
+3. **Login**: Authenticates to Docker Hub
 4. **Push Images**: Pushes both tags to DockerHub
 
 ## Prerequisites
 
 - Docker installed and running
 - DockerHub account credentials
-- Logged in to DockerHub (or script will prompt you)
+- Prefer Docker Hub Personal Access Token over password
 
 ## Configuration
 
@@ -91,8 +77,8 @@ Step 1: Building Docker image...
 [+] Building 0.4s (21/21) FINISHED
 ...
 
-Step 2: Checking DockerHub login...
-Already logged in to DockerHub as alfaprima
+Step 2: DockerHub login...
+Login Succeeded
 
 Step 3: Pushing version 1.0.6...
 The push refers to repository [docker.io/alfaprima/yt-fabric-ui]
@@ -115,7 +101,7 @@ latest: digest: sha256:... size: 856
 ### Not Logged In
 If you're not logged in to DockerHub, the script will prompt you:
 ```bash
-docker login
+docker login --username alfaprima
 ```
 
 ### Build Fails
@@ -124,22 +110,12 @@ Ensure your Dockerfile is valid and all dependencies are available.
 ### Push Fails
 - Check your internet connection
 - Verify DockerHub credentials
-- Ensure you have permission to push to the repository
+- Ensure your account can push to `alfaprima/yt-fabric-ui`
 
 ## Updating Version
 
-To push a new version:
+To push a new version, run:
 
-1. Update the version in `docker-compose.yml`:
-   ```yaml
-   image: yt-fabric-ui:1.0.7
-   ```
-
-2. Run the script:
-   ```bash
-   ./push-to-dockerhub.sh
-   ```
-
-Or specify the version directly:
 ```bash
 ./push-to-dockerhub.sh 1.0.7
+```

@@ -29,6 +29,7 @@
             </p>
         </a>
 
+        {{if .EnvEditEnabled}}
         <!-- Edit .env File Card -->
         <a href="{{.BasePath}}/config/env" class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 p-6">
             <div class="flex items-center mb-4">
@@ -42,6 +43,7 @@
                 Configure Fabric environment variables including API keys, model settings, and other configuration options.
             </p>
         </a>
+        {{end}}
     </div>
 
     <div class="mt-8 bg-blue-50 border-l-4 border-blue-400 p-4">
@@ -53,7 +55,7 @@
             </div>
             <div class="ml-3">
                 <p class="text-sm text-blue-700">
-                    <strong>Note:</strong> Changes to patterns and environment variables will take effect immediately. Make sure to backup your configurations before making significant changes.
+                    <strong>Note:</strong> Changes to patterns (and, if enabled, fabric env variables) take effect immediately. Make sure to backup your configurations before making significant changes.
                 </p>
             </div>
         </div>
