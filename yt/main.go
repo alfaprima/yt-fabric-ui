@@ -15,6 +15,8 @@ import (
 	"google.golang.org/api/youtube/v3"
 )
 
+var captionTracksRegex = regexp.MustCompile(`"captionTracks":(\[.*?\])`)
+
 type YT struct {
 	apiKey  string
 	service *youtube.Service
@@ -102,8 +104,7 @@ func (y *YT) getTranscript(doc soup.Root) (string, error) {
 	scriptTags := doc.FindAll("script")
 	for _, scriptTag := range scriptTags {
 		if strings.Contains(scriptTag.Text(), "captionTracks") {
-			regex := regexp.MustCompile(`"captionTracks":(\[.*?\])`)
-			match := regex.FindStringSubmatch(scriptTag.Text())
+			match := captionTracksRegex.FindStringSubmatch(scriptTag.Text())
 			if len(match) > 1 {
 				var captionTracks []struct {
 					BaseURL string `json:"baseUrl"`
