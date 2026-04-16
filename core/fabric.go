@@ -8,6 +8,42 @@ import (
 
 // RunFabric runs the fabric command with the given pattern and model
 func RunFabric(input, pattern, model string) (string, error) {
+	// Validate pattern
+	validPatterns, err := ListPatterns()
+	if err != nil {
+		return "", fmt.Errorf("failed to validate pattern: %v", err)
+	}
+
+	validPattern := false
+	for _, p := range validPatterns {
+		if p == pattern {
+			validPattern = true
+			break
+		}
+	}
+	if !validPattern {
+		return "", fmt.Errorf("invalid pattern: %s", pattern)
+	}
+
+	// Validate model
+	if model != "" && model != "default" {
+		validModels, err := ListModels()
+		if err != nil {
+			return "", fmt.Errorf("failed to validate model: %v", err)
+		}
+
+		validModel := false
+		for _, m := range validModels {
+			if m.Name == model {
+				validModel = true
+				break
+			}
+		}
+		if !validModel {
+			return "", fmt.Errorf("invalid model: %s", model)
+		}
+	}
+
 	var cmd *exec.Cmd
 	fmt.Println("Running fabric with pattern:", pattern, "and model:", model)
 	if model != "" && model != "default" {
