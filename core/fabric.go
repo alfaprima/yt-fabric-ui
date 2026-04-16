@@ -6,14 +6,16 @@ import (
 	"strings"
 )
 
+var execCommand = exec.Command
+
 // RunFabric runs the fabric command with the given pattern and model
 func RunFabric(input, pattern, model string) (string, error) {
 	var cmd *exec.Cmd
 	fmt.Println("Running fabric with pattern:", pattern, "and model:", model)
 	if model != "" && model != "default" {
-		cmd = exec.Command("fabric", "--pattern", pattern, "--model", model)
+		cmd = execCommand("fabric", "--pattern", pattern, "--model", model)
 	} else {
-		cmd = exec.Command("fabric", "--pattern", pattern)
+		cmd = execCommand("fabric", "--pattern", pattern)
 	}
 	cmd.Stdin = strings.NewReader(input)
 
@@ -25,7 +27,7 @@ func RunFabric(input, pattern, model string) (string, error) {
 }
 
 func ListPatterns() ([]string, error) {
-	cmd := exec.Command("fabric", "-l")
+	cmd := execCommand("fabric", "-l")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("error listing patterns: %v", err)
@@ -41,7 +43,7 @@ func ListPatterns() ([]string, error) {
 }
 
 func ListModels() ([]Model, error) {
-	cmd := exec.Command("fabric", "-L")
+	cmd := execCommand("fabric", "-L")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("error listing models: %v", err)
